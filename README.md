@@ -226,37 +226,37 @@ Critérios típicos:
 
 ### 11.2 Smoke Test (`smoke.js`)
 
-Objetivo: Verificar disponibilidade básica.
-Configuração: 1 VU por 1 minuto.
-Thresholds: `checks: rate==1`, `http_req_failed: rate==0`.
-Resultados: p95 ~1 ms; RPS ~4275; 0% erros; 100% 200 OK.
-Conclusão: Resposta mínima extremamente rápida; base confiável para prosseguir.
+- Objetivo: Verificar disponibilidade básica.
+- Configuração: 1 VU por 1 minuto.
+- Thresholds: `checks: rate==1`, `http_req_failed: rate==0`.
+- Resultados: p95 ~1 ms; RPS ~4275; 0% erros; 100% 200 OK.
+- Conclusão: Resposta mínima extremamente rápida; base confiável para prosseguir.
 
 ### 11.3 Load Test (`load.js`)
 
-Objetivo: Validar comportamento com 50 usuários simultâneos.
-Configuração: Ramp-up 1m, platô 2m, ramp-down 30s.
-Thresholds: `p(95)<500ms`, `http_req_failed<1%` (ambos atendidos).
-Resultados: p95 ~294 ms; p99 ~313 ms; RPS ~32; 0% erros; 100% 201.
-Conclusão: Estável; latências dentro do SLA; sem falhas observadas.
+- Objetivo: Validar comportamento com 50 usuários simultâneos.
+- Configuração: Ramp-up 1m, platô 2m, ramp-down 30s.
+- Thresholds: `p(95)<500ms`, `http_req_failed<1%` (ambos atendidos).
+- Resultados: p95 ~294 ms; p99 ~313 ms; RPS ~32; 0% erros; 100% 201.
+- Conclusão: Estável; latências dentro do SLA; sem falhas observadas.
 
 ### 11.4 Spike Test (`spike.js`)
 
-Objetivo: Avaliar reação a salto abrupto (flash sale).
-Configuração: 10 VUs (30s) → 300 VUs (10s) → manter 1m → queda para 10 VUs.
-Threshold: `http_req_failed<5%` (0%).
-Resultados: p95 ~293 ms; p99 ~313 ms; RPS ~128; 0% erros; 100% 201.
-Conclusão: Pico absorvido sem degradação; latência permanece similar ao teste de carga.
+- Objetivo: Avaliar reação a salto abrupto (flash sale).
+- Configuração: 10 VUs (30s) → 300 VUs (10s) → manter 1m → queda para 10 VUs.
+- Threshold: `http_req_failed<5%` (0%).
+- Resultados: p95 ~293 ms; p99 ~313 ms; RPS ~128; 0% erros; 100% 201.
+- Conclusão: Pico absorvido sem degradação; latência permanece similar ao teste de carga.
 
 ### 11.5 Stress Test (`stress.js`)
 
-Objetivo: Determinar ponto de ruptura em workload CPU-heavy.
-Configuração: Escalonamento progressivo até 1000 VUs (0→200, 200→500, 500→1000, cada ~2m).
-Threshold definido: `http_req_failed < 20%` (violado: 95%).
-Resultados: p95 ~4.43 s; p99 ~49 s; RPS ~359; 95.27% erros; apenas ~4% respostas 201 bem-sucedidas.
-Ponto de ruptura: entre ~200 e 300 VUs inicia saturação (crescimento exponencial de latência e falhas).
-Sintomas: fila crescente, explosão do p99, timeouts/refusals, CPU-bound evidente, queda drástica de sucesso.
-Conclusão: Capacidade sustentável antes de degradação severa <300 VUs para operações intensivas de CPU.
+- Objetivo: Determinar ponto de ruptura em workload CPU-heavy.
+- Configuração: Escalonamento progressivo até 1000 VUs (0→200, 200→500, 500→1000, cada ~2m).
+- Threshold definido: `http_req_failed < 20%` (violado: 95%).
+- Resultados: p95 ~4.43 s; p99 ~49 s; RPS ~359; 95.27% erros; apenas ~4% respostas 201 bem-sucedidas.
+- Ponto de ruptura: entre ~200 e 300 VUs inicia saturação (crescimento exponencial de latência e falhas).
+- Sintomas: fila crescente, explosão do p99, timeouts/refusals, CPU-bound evidente, queda drástica de sucesso.
+- Conclusão: Capacidade sustentável antes de degradação severa <300 VUs para operações intensivas de CPU.
 
 ### 11.6 Síntese Geral
 
