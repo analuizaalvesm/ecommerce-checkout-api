@@ -213,15 +213,76 @@ Critérios típicos:
 - Aumento contínuo de tempo médio sem estabilização ao longo do platô.
   Documentar: VU aproximado, métricas no momento, comportamento observado (ex.: quedas de conexão).
 
-## 11. Relato de Resultados
+## 11. Relato de Resultados (Resumo Consolidado K6)
 
-Recomenda-se produzir tabela ou resumo incluindo para cada teste:
+### 11.1 Smoke Test (`smoke.js`)
 
-- Configuração (stages, thresholds).
-- p95 / p99 finais em cada fase.
-- Máximo RPS sustentado.
-- Erros totais (%).
-- Ponto de ruptura (stress) e sintomas.
+Objetivo: Verificar disponibilidade básica da API.
+Configuração: 1 VU, duração 1m.
+Thresholds: `checks: rate==1`, `http_req_failed: rate==0`.
+Resultados Principais:
+
+- p95: ~1 ms
+- p99: ~1 ms
+- Throughput (RPS): ~4275 req/s
+- Erros: 0%
+- Status: 100% 200 OK
+  Conclusão: API saudável e extremamente rápida sob carga mínima.
+
+### 11.2 Load Test (`load.js`)
+
+Objetivo: Avaliar comportamento sob carga típica (até 50 usuários simultâneos).
+Configuração: 50 VUs, ~4 min (ramp-up, platô, ramp-down).
+Thresholds: `http_req_duration p(95)<500ms` (aprovado), `http_req_failed < 1%`.
+Resultados Principais:
+
+- p95: ~294 ms
+- p99: ~313 ms
+- RPS sustentado: ~32 req/s
+- Erros: 0%
+- Status: 100% 201
+  Conclusão: Estável com 50 VUs; p95 dentro do threshold e nenhuma falha. Indica boa resiliência em cenário realista.
+
+### 11.3 Spike Test (`spike.js`)
+
+Objetivo: Avaliar resposta a carga súbita (pico rápido até 300 VUs).
+Configuração: Salto para 300 VUs, duração total ~2m.
+Threshold: `http_req_failed < 5%` (aprovado: 0%).
+Resultados Principais:
+
+- p95: ~293 ms
+- p99: ~313 ms
+- RPS: ~128 req/s
+- Erros: 0%
+- Status: 100% 201
+  Conclusão: Absorve picos súbitos mantendo latência estável e 100% de sucesso. Recuperação sem degradação visível.
+
+### 11.4 Stress Test (`stress.js`)
+
+Objetivo: Identificar ponto de ruptura com carga progressiva até 1000 VUs.
+Configuração: Escalonamento em múltiplos estágios até 1000 VUs.
+Threshold: `http_req_failed < 20%` (violado: 95%).
+Resultados Principais:
+
+- p95: ~4.43 s
+- p99: ~49 s
+- RPS: ~359 req/s
+- Erros: 95.27%
+- Status 201: ~4% das requisições entregues
+  Ponto de Ruptura: Entre ~200 e 300 VUs a latência começa a subir exponencialmente.
+  Sintomas após ruptura:
+- Requisições acumuladas e fila crescente.
+- p99 explode para dezenas de segundos.
+- Timeouts / falhas massivas (http_req_failed elevado).
+- Processamento se torna CPU-bound; a aplicação perde capacidade de servir respostas.
+  Conclusão: Capacidade sustentável antes de degradação severa situa-se abaixo de ~300 VUs para workload CPU-heavy.
+
+### 11.5 Síntese Geral
+
+- Limite operacional saudável: até 50 VUs (I/O leve) e picos transitórios de 300 VUs sem degradação no endpoint simples.
+- Workload CPU (`/checkout/crypto`) apresenta saturação pronunciada a partir de ~200–300 VUs.
+- Indicadores de ruptura: explosão do p99, aumento abrupto de erro (>90%), queda em respostas bem-sucedidas.
+- Recomendações: Investigar otimizações de CPU (algoritmos/hash), escalabilidade horizontal ou offload da função pesada.
 
 ## 12. Boas Práticas
 
@@ -229,12 +290,6 @@ Recomenda-se produzir tabela ou resumo incluindo para cada teste:
 - Repetir cenários para validar consistência.
 - Versionar scripts de teste (controle de mudanças + reprodutibilidade).
 - Separar parâmetros (endpoints, payloads) em constantes para facilitar ajuste.
-
-## 13. Extensões Futuras (Opcional)
-
-- Teste de Resistência (Soak): carga moderada contínua (ex.: 50 VUs por 30–60 min) para avaliar vazamentos de memória.
-- Monitoramento externo: integrar Prometheus/Grafana para correlação de recursos.
-- Pipeline CI: executar smoke automaticamente em cada deploy.
 
 ## 14. Referências
 
