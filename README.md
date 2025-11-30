@@ -213,76 +213,66 @@ Critérios típicos:
 - Aumento contínuo de tempo médio sem estabilização ao longo do platô.
   Documentar: VU aproximado, métricas no momento, comportamento observado (ex.: quedas de conexão).
 
-## 11. Relato de Resultados (Resumo Consolidado K6)
+## 11. Relato de Resultados (Resumo Consolidado k6)
 
-### 11.1 Smoke Test (`smoke.js`)
+### 11.1 Visão Comparativa
 
-Objetivo: Verificar disponibilidade básica da API.
-Configuração: 1 VU, duração 1m.
+| Teste  | Script      | VUs Máx | Duração (aprox.) | p95     | p99     | RPS (aprox.) | Erros (%) | Status predominante | Conclusão curta  |
+| ------ | ----------- | ------- | ---------------- | ------- | ------- | ------------ | --------- | ------------------- | ---------------- |
+| Smoke  | `smoke.js`  | 1       | 1m               | ~1 ms   | ~1 ms   | ~4275        | 0         | 200 OK              | Saúde confirmada |
+| Load   | `load.js`   | 50      | ~4m              | ~294 ms | ~313 ms | ~32          | 0         | 201 Created         | Estável em carga |
+| Spike  | `spike.js`  | 300     | ~2m              | ~293 ms | ~313 ms | ~128         | 0         | 201 Created         | Pico absorvido   |
+| Stress | `stress.js` | 1000    | ~6m (estágios)   | ~4.43 s | ~49 s   | ~359         | 95.27     | 201 (4% sucesso)    | Ruptura ~200–300 |
+
+### 11.2 Smoke Test (`smoke.js`)
+
+Objetivo: Verificar disponibilidade básica.
+Configuração: 1 VU por 1 minuto.
 Thresholds: `checks: rate==1`, `http_req_failed: rate==0`.
-Resultados Principais:
+Resultados: p95 ~1 ms; RPS ~4275; 0% erros; 100% 200 OK.
+Conclusão: Resposta mínima extremamente rápida; base confiável para prosseguir.
 
-- p95: ~1 ms
-- p99: ~1 ms
-- Throughput (RPS): ~4275 req/s
-- Erros: 0%
-- Status: 100% 200 OK
-  Conclusão: API saudável e extremamente rápida sob carga mínima.
+### 11.3 Load Test (`load.js`)
 
-### 11.2 Load Test (`load.js`)
+Objetivo: Validar comportamento com 50 usuários simultâneos.
+Configuração: Ramp-up 1m, platô 2m, ramp-down 30s.
+Thresholds: `p(95)<500ms`, `http_req_failed<1%` (ambos atendidos).
+Resultados: p95 ~294 ms; p99 ~313 ms; RPS ~32; 0% erros; 100% 201.
+Conclusão: Estável; latências dentro do SLA; sem falhas observadas.
 
-Objetivo: Avaliar comportamento sob carga típica (até 50 usuários simultâneos).
-Configuração: 50 VUs, ~4 min (ramp-up, platô, ramp-down).
-Thresholds: `http_req_duration p(95)<500ms` (aprovado), `http_req_failed < 1%`.
-Resultados Principais:
+### 11.4 Spike Test (`spike.js`)
 
-- p95: ~294 ms
-- p99: ~313 ms
-- RPS sustentado: ~32 req/s
-- Erros: 0%
-- Status: 100% 201
-  Conclusão: Estável com 50 VUs; p95 dentro do threshold e nenhuma falha. Indica boa resiliência em cenário realista.
+Objetivo: Avaliar reação a salto abrupto (flash sale).
+Configuração: 10 VUs (30s) → 300 VUs (10s) → manter 1m → queda para 10 VUs.
+Threshold: `http_req_failed<5%` (0%).
+Resultados: p95 ~293 ms; p99 ~313 ms; RPS ~128; 0% erros; 100% 201.
+Conclusão: Pico absorvido sem degradação; latência permanece similar ao teste de carga.
 
-### 11.3 Spike Test (`spike.js`)
+### 11.5 Stress Test (`stress.js`)
 
-Objetivo: Avaliar resposta a carga súbita (pico rápido até 300 VUs).
-Configuração: Salto para 300 VUs, duração total ~2m.
-Threshold: `http_req_failed < 5%` (aprovado: 0%).
-Resultados Principais:
+Objetivo: Determinar ponto de ruptura em workload CPU-heavy.
+Configuração: Escalonamento progressivo até 1000 VUs (0→200, 200→500, 500→1000, cada ~2m).
+Threshold definido: `http_req_failed < 20%` (violado: 95%).
+Resultados: p95 ~4.43 s; p99 ~49 s; RPS ~359; 95.27% erros; apenas ~4% respostas 201 bem-sucedidas.
+Ponto de ruptura: entre ~200 e 300 VUs inicia saturação (crescimento exponencial de latência e falhas).
+Sintomas: fila crescente, explosão do p99, timeouts/refusals, CPU-bound evidente, queda drástica de sucesso.
+Conclusão: Capacidade sustentável antes de degradação severa <300 VUs para operações intensivas de CPU.
 
-- p95: ~293 ms
-- p99: ~313 ms
-- RPS: ~128 req/s
-- Erros: 0%
-- Status: 100% 201
-  Conclusão: Absorve picos súbitos mantendo latência estável e 100% de sucesso. Recuperação sem degradação visível.
+### 11.6 Síntese Geral
 
-### 11.4 Stress Test (`stress.js`)
+- Workload leve (`/checkout/simple`): suporta picos transitórios (300 VUs) sem degradação significativa.
+- Workload pesada (`/checkout/crypto`): saturação acentuada a partir de ~200–300 VUs.
+- Indicadores de ruptura: aumento abrupto p99, taxa de erros >90%, queda em respostas 201.
+- Recomendações: otimização de função de criptografia, paralelização ou offloading; considerar escalabilidade horizontal; definir limites operacionais formais.
 
-Objetivo: Identificar ponto de ruptura com carga progressiva até 1000 VUs.
-Configuração: Escalonamento em múltiplos estágios até 1000 VUs.
-Threshold: `http_req_failed < 20%` (violado: 95%).
-Resultados Principais:
+### 11.7 Recomendações Técnicas
 
-- p95: ~4.43 s
-- p99: ~49 s
-- RPS: ~359 req/s
-- Erros: 95.27%
-- Status 201: ~4% das requisições entregues
-  Ponto de Ruptura: Entre ~200 e 300 VUs a latência começa a subir exponencialmente.
-  Sintomas após ruptura:
-- Requisições acumuladas e fila crescente.
-- p99 explode para dezenas de segundos.
-- Timeouts / falhas massivas (http_req_failed elevado).
-- Processamento se torna CPU-bound; a aplicação perde capacidade de servir respostas.
-  Conclusão: Capacidade sustentável antes de degradação severa situa-se abaixo de ~300 VUs para workload CPU-heavy.
+- Profiling de CPU para identificar hotspots da função de hash.
+- Avaliar uso de workers ou fila assíncrona para descarregar operações pesadas.
+- Introduzir métricas de infraestrutura (CPU%, load average) em correlação com p95/p99.
+- Definir SLOs: ex. p95<300 ms até 50 VUs (normal); p95<350 ms em picos até 300 VUs (flash sale).
 
-### 11.5 Síntese Geral
-
-- Limite operacional saudável: até 50 VUs (I/O leve) e picos transitórios de 300 VUs sem degradação no endpoint simples.
-- Workload CPU (`/checkout/crypto`) apresenta saturação pronunciada a partir de ~200–300 VUs.
-- Indicadores de ruptura: explosão do p99, aumento abrupto de erro (>90%), queda em respostas bem-sucedidas.
-- Recomendações: Investigar otimizações de CPU (algoritmos/hash), escalabilidade horizontal ou offload da função pesada.
+## 12. Boas Práticas
 
 ## 12. Boas Práticas
 
@@ -290,6 +280,13 @@ Resultados Principais:
 - Repetir cenários para validar consistência.
 - Versionar scripts de teste (controle de mudanças + reprodutibilidade).
 - Separar parâmetros (endpoints, payloads) em constantes para facilitar ajuste.
+
+## 13. Extensões Futuras (Opcional)
+
+- Teste de Resistência (Soak): 30–60 min a carga moderada para avaliar estabilidade e possíveis vazamentos.
+- Integração com Prometheus/Grafana para dashboards contínuos.
+- Automação em pipeline CI: executar smoke em cada deploy e publicar relatório.
+- Exportação de métricas em formato JSON para análise posterior.
 
 ## 14. Referências
 
