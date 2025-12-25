@@ -1,4 +1,4 @@
-# Suíte de Testes de Desempenho – Ecommerce Checkout API
+# Trabalho Prático - Testes de Desempenho (Ecommerce Checkout API)
 
 Este projeto destina-se à construção e execução de uma suíte de testes de performance sobre uma API de Checkout de E-commerce (simulada). O foco não é evoluir ou otimizar o código da API, mas atuar como Engenheiro(a) de Performance para caracterizar o comportamento, limites e ponto de ruptura (breaking point) do sistema sob teste (SUT).
 
